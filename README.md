@@ -70,22 +70,21 @@ Qwen2API/
    ```
 
 ### 复制 Hugging Face 空间
-
-    [Qwen2API](https://huggingface.co/spaces/devme/q2waepnilm)
+  - [Qwen2API](https://huggingface.co/spaces/devme/q2waepnilm)
 
 ## API 端点
 
 ### 获取模型列表
 
 - **请求方式**: `GET`
-- **URL**: `/api/v1/models`
+- **URL**: `/v1/models`
 - **Headers**:
   - `Authorization`: 必须提供有效的授权令牌。
 
 ### 聊天完成
 
 - **请求方式**: `POST`
-- **URL**: `/api/v1/chat/completions`
+- **URL**: `/v1/chat/completions`
 - **Headers**:
   - `Authorization`: 必须提供有效的授权令牌。
 - **请求体**:
