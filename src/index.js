@@ -6,11 +6,8 @@ const uuid = require('uuid')
 const { uploadImage } = require('./image')
 require('dotenv').config()
 
-app.use(bodyParser.json())
-// 设置上传文件大小限制
-app.use(bodyParser.json({ limit: '50mb' }))
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
-
+app.use(bodyParser.json({ limit: '128mb' }))
+app.use(bodyParser.urlencoded({ limit: '128mb', extended: true }))
 
 const isJson = (str) => {
   try {
@@ -20,6 +17,10 @@ const isJson = (str) => {
     return false
   }
 }
+
+app.use((err, req, res, next) => {
+    console.error(err) // 输出调试信息
+})
 
 app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, async (req, res) => {
   try {
@@ -48,10 +49,10 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
   }
   const messages = req.body.messages
   let imageId = null
-  const isImageMessage = Array.isArray(messages[messages.length - 1].content) === true && messages[messages.length - 1].content[1].image_url.url
+  const isImageMessage = Array.isArray(messages[messages.length - 1].content) === true && messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url).length > 0
   if (isImageMessage) {
-    imageId = await uploadImage(messages[messages.length - 1].content[1].image_url.url, req.headers.authorization)
-    messages[messages.length - 1].content[1] = {
+    imageId = await uploadImage(messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url)[0].image_url.url, req.headers.authorization)
+    messages[messages.length - 1].content[messages[messages.length - 1].content.length - 1] = {
       "type": "image",
       "image": imageId
     }
