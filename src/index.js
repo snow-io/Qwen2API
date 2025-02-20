@@ -4,13 +4,24 @@ const axios = require('axios')
 const app = express()
 const uuid = require('uuid')
 const { uploadImage } = require('./image')
+require('dotenv').config()
 
 app.use(bodyParser.json())
 // 设置上传文件大小限制
 app.use(bodyParser.json({ limit: '50mb' }))
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }))
 
-app.get('/v1/models', async (req, res) => {
+
+const isJson = (str) => {
+  try {
+    JSON.parse(str)
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
+app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, async (req, res) => {
   try {
     const response = await axios.get('https://chat.qwenlm.ai/api/models',
       {
@@ -28,7 +39,7 @@ app.get('/v1/models', async (req, res) => {
   }
 })
 
-app.post('/v1/chat/completions', async (req, res) => {
+app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/completions`, async (req, res) => {
   if (!req.headers.authorization) {
     return res.status(403)
       .json({
@@ -82,7 +93,12 @@ app.post('/v1/chat/completions', async (req, res) => {
 
       const lists = decodeText.split('\n').filter(item => item.trim() !== '')
       for (const item of lists) {
-        const decodeJson = JSON.parse(item.replace(/^data: /, ''))
+        const decodeJson = isJson(item.replace(/^data: /, '')) ? JSON.parse(item.replace(/^data: /, '')) : null
+
+        if (decodeJson === null) {
+          continue
+        }
+
         let content = decodeJson.choices[0].delta.content
 
         if (backContent === null) {

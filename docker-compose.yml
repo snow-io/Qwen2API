@@ -1,0 +1,7 @@
+services:
+  qwen2api:
+    container_name: qwen2api
+    image: rfym21/qwen2api:latest
+    restart: always
+    ports:
+      - "3000:3000"
