@@ -19,7 +19,7 @@ const isJson = (str) => {
 }
 
 app.use((err, req, res, next) => {
-    console.error(err) // 输出调试信息
+  console.error(err) // 输出调试信息
 })
 
 app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, async (req, res) => {
@@ -47,6 +47,9 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
         error: "请提供正确的 Authorization token"
       })
   }
+
+  console.log(`[${new Date().toLocaleString()}]: model: ${req.body.model} | stream: ${req.body.stream}`)
+
   const messages = req.body.messages
   let imageId = null
   const isImageMessage = Array.isArray(messages[messages.length - 1].content) === true && messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url).length > 0
@@ -58,80 +61,109 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
     }
   }
 
+  if (req.body.stream === null || req.body.stream === undefined) {
+    req.body.stream = false
+  }
   const stream = req.body.stream
 
   const notStreamResponse = async (response) => {
-    const bodyTemplate = {
-      "id": `chatcmpl-${uuid.v4()}`,
-      "object": "chat.completion",
-      "created": new Date().getTime(),
-      "model": req.body.model,
-      "choices": [
-        {
-          "index": 0,
-          "message": {
-            "role": "assistant",
-            "content": response.choices[0].message.content
-          },
-          "finish_reason": "stop"
+    try {
+      const bodyTemplate = {
+        "id": `chatcmpl-${uuid.v4()}`,
+        "object": "chat.completion",
+        "created": new Date().getTime(),
+        "model": req.body.model,
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": response.choices[0].message.content
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": JSON.stringify(req.body.messages).length,
+          "completion_tokens": response.choices[0].message.content.length,
+          "total_tokens": JSON.stringify(req.body.messages).length + response.choices[0].message.content.length
         }
-      ],
-      "usage": {
-        "prompt_tokens": JSON.stringify(req.body.messages).length,
-        "completion_tokens": response.choices[0].message.content.length,
-        "total_tokens": JSON.stringify(req.body.messages).length + response.choices[0].message.content.length
       }
+      res.json(bodyTemplate)
+    } catch (error) {
+      console.log(error)
+      res.status(500)
+        .json({
+          error: "服务错误!!!"
+        })
     }
-    res.json(bodyTemplate)
   }
 
   const streamResponse = async (response) => {
-    const id = uuid.v4()
-    const decoder = new TextDecoder('utf-8')
-    let backContent = null
-    response.on('data', (chunk) => {
-      const decodeText = decoder.decode(chunk)
+    try {
+      const id = uuid.v4()
+      const decoder = new TextDecoder('utf-8')
+      let backContent = null
+      response.on('data', (chunk) => {
+        const decodeText = decoder.decode(chunk)
 
-      const lists = decodeText.split('\n').filter(item => item.trim() !== '')
-      for (const item of lists) {
-        const decodeJson = isJson(item.replace(/^data: /, '')) ? JSON.parse(item.replace(/^data: /, '')) : null
+        const lists = decodeText.split('\n').filter(item => item.trim() !== '')
+        for (const item of lists) {
+          try {
+            const decodeJson = isJson(item.replace(/^data: /, '')) ? JSON.parse(item.replace(/^data: /, '')) : null
 
-        if (decodeJson === null) {
-          continue
-        }
-
-        let content = decodeJson.choices[0].delta.content
-
-        if (backContent === null) {
-          backContent = content
-        } else {
-          const temp = content
-          content = content.replace(backContent, '')
-          backContent = temp
-        }
-
-        const StreamTemplate = {
-          "id": `chatcmpl-${id}`,
-          "object": "chat.completion.chunk",
-          "created": new Date().getTime(),
-          "choices": [
-            {
-              "index": 0,
-              "delta": {
-                "content": content
-              },
-              "finish_reason": null
+            if (decodeJson === null) {
+              continue
             }
-          ]
-        }
-        res.write(`data: ${JSON.stringify(StreamTemplate)}\n\n`)
-      }
-    })
 
-    response.on('end', () => {
-      res.write(`data: [DONE]\n\n`)
-      res.end()
-    })
+            // console.log(JSON.stringify(decodeJson))
+            let content = decodeJson.choices[0].delta.content
+
+            if (backContent === null) {
+              backContent = content
+            } else {
+              const temp = content
+              content = content.replace(backContent, '')
+              backContent = temp
+            }
+
+            const StreamTemplate = {
+              "id": `chatcmpl-${id}`,
+              "object": "chat.completion.chunk",
+              "created": new Date().getTime(),
+              "choices": [
+                {
+                  "index": 0,
+                  "delta": {
+                    "content": content
+                  },
+                  "finish_reason": null
+                }
+              ]
+            }
+            res.write(`data: ${JSON.stringify(StreamTemplate)}\n\n`)
+          } catch (error) {
+            console.log(error)
+            res.status(500)
+              .json({
+                error: "服务错误!!!"
+              })
+          }
+        }
+      })
+
+      response.on('end', () => {
+        res.write(`data: [DONE]\n\n`)
+        res.end()
+      })
+
+    } catch (error) {
+      console.log(error)
+      res.status(500)
+        .json({
+          error: "服务错误!!!"
+        })
+    }
 
   }
 
@@ -146,6 +178,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
         responseType: stream ? 'stream' : 'json'
       }
     )
+
     if (stream) {
       res.set({
         'Content-Type': 'text/event-stream',
@@ -161,7 +194,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
     }
 
   } catch (error) {
-    console.log(error)
+    // console.log(error)
     res.status(500)
       .json({
         error: "罢工了，不干了!!!"
@@ -171,6 +204,6 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
 })
 
 app.listen(3000, () => {
-  console.log('Server is running on port 3000')
+  console.log(`服务运行于 http://localhost:3000/${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
 })
 
