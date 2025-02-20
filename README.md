@@ -1,6 +1,3 @@
-以下是为您的项目编写的 README 文件示例：
-
-```markdown
 # Qwen2API
 
 Qwen2API 是一个基于 Node.js 的 API 服务，提供聊天模型的接口以及图像上传功能。
