@@ -27,5 +27,5 @@ jobs:
         context: .
         push: true
         tags: |
-          ghcr.io/qwentoapi:latest
-          ghcr.io/qwentoapi:${{ github.sha }}
+          ghcr.io/snow-io/qwen2api:latest
+          ghcr.io/snow-io/qwen2api:${{ github.sha }}
