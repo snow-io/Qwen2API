@@ -93,6 +93,8 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
 
   if (authToken === `Bearer ${process.env.API_KEY}`) {
     authToken = accountManager.getAccountToken()
+  } else {
+    authToken = authToken.replace('Bearer ', '')
   }
 
   console.log(`[${new Date().toLocaleString()}]: model: ${req.body.model} | stream: ${req.body.stream} | authToken: ${authToken.replace('Bearer ', '').slice(0, Math.floor(authToken.length / 2))}...`)
@@ -102,9 +104,11 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
   const isImageMessage = Array.isArray(messages[messages.length - 1].content) === true && messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url).length > 0
   if (isImageMessage) {
     imageId = await uploadImage(messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url)[0].image_url.url, authToken)
-    messages[messages.length - 1].content[messages[messages.length - 1].content.length - 1] = {
-      "type": "image",
-      "image": imageId
+    if (imageId) {
+      messages[messages.length - 1].content[messages[messages.length - 1].content.length - 1] = {
+        "type": "image",
+        "image": imageId
+      }
     }
   }
 
@@ -242,9 +246,9 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
 
   } catch (error) {
     // console.log(error)
-    res.status(403)
+    res.status(500)
       .json({
-        error: "(1) 无效的Token"
+        error: "请求发送失败！！！"
       })
   }
 
