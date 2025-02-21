@@ -31,7 +31,7 @@ Qwen2API/
 
 1. 使用 Docker 命令：
    ```bash
-   docker run -d -p 3000:3000 -e --name qwen2api rfym21/qwen2api:latest
+   docker run -d -p 3000:3000 --name qwen2api rfym21/qwen2api:latest
    ```
 
 2. 使用 docker-compose 运行服务：
@@ -70,9 +70,16 @@ Qwen2API/
    ```
 
 ### 复制 Hugging Face 空间
-  - [Qwen2API](https://huggingface.co/spaces/devme/q2waepnilm)
+
+- [Qwen2API](https://huggingface.co/spaces/devme/q2waepnilm)
 
 ## API 端点
+
+### 获取授权令牌
+
+- 登录 [QwenLM](https://chat.qwenlm.ai) 打开开发者调试工具获取
+
+![aa0350d1a79c4bdf2ac55b9a374b4b777cb2b512_2_1380x760.png](https://s2.loli.net/2025/02/21/syXqpR3V5OAcDol.png)
 
 ### 获取模型列表
 
