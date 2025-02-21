@@ -4,7 +4,17 @@ const axios = require('axios')
 const app = express()
 const uuid = require('uuid')
 const { uploadImage } = require('./image')
-require('dotenv').config()
+const Account = require('./account.js')
+const fs = require('fs')
+const path = require('path')
+const dotenv = require('dotenv')
+dotenv.config()
+const accountTokens = process.env.ACCOUNT_TOKENS
+let accountManager = null
+
+if (accountTokens) {
+  accountManager = new Account(accountTokens)
+}
 
 app.use(bodyParser.json({ limit: '128mb' }))
 app.use(bodyParser.urlencoded({ limit: '128mb', extended: true }))
@@ -19,15 +29,46 @@ const isJson = (str) => {
 }
 
 app.use((err, req, res, next) => {
-  console.error(err) // 输出调试信息
+  console.error(err)
+})
+
+app.get('/', async (req, res) => {
+  try {
+    let html = fs.readFileSync(path.join(__dirname, 'home.html'), 'utf-8')
+    if (accountManager) {
+      res.setHeader('Content-Type', 'text/html')
+      html = html.replace('BASE_URL', `http://localhost:${process.env.SERVICE_PORT}${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
+      html = html.replace('RequestNumber', accountManager.getRequestNumber())
+      html = html.replace('SuccessAccountNumber', accountManager.getAccountTokensNumber())
+      html = html.replace('ErrorAccountNumber', accountManager.getErrorAccountTokensNumber())
+      html = html.replace('ErrorAccountTokens', accountManager.getErrorAccountTokens().join('\n'))
+    }
+    res.send(html)
+  } catch (e) {
+    res.status(500)
+      .json({
+        error: "服务错误!!!"
+      })
+  }
 })
 
 app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, async (req, res) => {
   try {
+    let authToken = req.headers.authorization
+    if (!authToken) {
+      return res.status(403)
+        .json({
+          error: "请提供正确的 Authorization token"
+        })
+    }
+
+    if (authToken === `Bearer ${process.env.API_KEY}`) {
+      authToken = accountManager.getAccountToken()
+    }
     const response = await axios.get('https://chat.qwenlm.ai/api/models',
       {
         headers: {
-          "Authorization": req.headers.authorization,
+          "Authorization": `Bearer ${authToken}`,
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
       })
@@ -35,26 +76,32 @@ app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, asy
   } catch (error) {
     res.status(403)
       .json({
-        error: "请提供正确的 Authorization token"
+        error: "(0) 无效的Token"
       })
   }
 })
 
 app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/completions`, async (req, res) => {
-  if (!req.headers.authorization) {
+
+  let authToken = req.headers.authorization
+  if (!authToken) {
     return res.status(403)
       .json({
         error: "请提供正确的 Authorization token"
       })
   }
 
-  console.log(`[${new Date().toLocaleString()}]: model: ${req.body.model} | stream: ${req.body.stream}`)
+  if (authToken === `Bearer ${process.env.API_KEY}`) {
+    authToken = accountManager.getAccountToken()
+  }
+
+  console.log(`[${new Date().toLocaleString()}]: model: ${req.body.model} | stream: ${req.body.stream} | authToken: ${authToken.replace('Bearer ', '').slice(0, Math.floor(authToken.length / 2))}...`)
 
   const messages = req.body.messages
   let imageId = null
   const isImageMessage = Array.isArray(messages[messages.length - 1].content) === true && messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url).length > 0
   if (isImageMessage) {
-    imageId = await uploadImage(messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url)[0].image_url.url, req.headers.authorization)
+    imageId = await uploadImage(messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url)[0].image_url.url, authToken)
     messages[messages.length - 1].content[messages[messages.length - 1].content.length - 1] = {
       "type": "image",
       "image": imageId
@@ -172,7 +219,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
       req.body,
       {
         headers: {
-          "Authorization": req.headers.authorization,
+          "Authorization": `Bearer ${authToken}`,
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         },
         responseType: stream ? 'stream' : 'json'
@@ -195,15 +242,15 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
 
   } catch (error) {
     // console.log(error)
-    res.status(500)
+    res.status(403)
       .json({
-        error: "罢工了，不干了!!!"
+        error: "(1) 无效的Token"
       })
   }
 
 })
 
-app.listen(3000, () => {
-  console.log(`服务运行于 http://localhost:3000/${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
+app.listen(process.env.SERVICE_PORT, () => {
+  console.log(`服务运行于 http://localhost:${process.env.SERVICE_PORT}${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
 })
 

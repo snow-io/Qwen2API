@@ -17,6 +17,34 @@ Qwen2API/
 
 ```
 
+## 配置文件
+
+### .env 文件
+
+```plaintext
+    API_PREFIX=
+    SERVICE_PORT=3000
+    API_KEY=sk-123456
+    ACCOUNT_TOKENS=
+```
+
+- API_PREFIX: 服务路径
+    > API 路径，不填则为空(http://localhost:3000)
+
+    > 示例(/api) 则访问 http://localhost:3000/api
+- SERVICE_PORT: 服务运行端口
+    > 如果需要修改Docker暴露端口，请修改ports中的参数
+
+    >示例(8080:3000) 则访问 http://localhost:8080
+- API_KEY: 密钥
+    > API 密钥 (非必填)
+
+    > 如果需要使用多账户或使用内置账户，请填写此项
+- ACCOUNT_TOKENS: 账号token
+    > 账号token：多个账号使用","分隔
+
+    > 示例：ey1...,ey2...,ey3...
+
 ## 安装与运行
 
 ### 先决条件
@@ -30,6 +58,7 @@ Qwen2API/
 ### 使用 Docker 运行
 
 1. 使用 Docker 命令：
+
    ```bash
    docker run -d -p 3000:3000 -e --name qwen2api rfym21/qwen2api:latest
    ```
@@ -57,10 +86,13 @@ Qwen2API/
    npm install
    ```
 
-3. 创建 `.env` 文件并设置 API 前缀：
+3. 创建 `.env` 文件并设置变量：
 
    ```plaintext
-   API_PREFIX=/api
+   API_PREFIX=
+   SERVICE_PORT=3000
+   API_KEY=sk-123456
+   ACCOUNT_TOKENS=ey1...,ey2...,ey3...
    ```
 
 4. 启动服务：
@@ -70,7 +102,8 @@ Qwen2API/
    ```
 
 ### 复制 Hugging Face 空间
-  - [Qwen2API](https://huggingface.co/spaces/devme/q2waepnilm)
+
+- [Qwen2API](https://huggingface.co/spaces/devme/q2waepnilm)
 
 ## API 端点
 
@@ -101,6 +134,12 @@ Qwen2API/
     "stream": false
   }
   ```
+
+## 获取授权令牌
+
+- 登录 [QwenLM](https://chat.qwenlm.ai) 打开开发者调试工具获取
+
+![get_token.png](https://s2.loli.net/2025/02/21/syXqpR3V5OAcDol.png)
 
 ### 上传图像
 
