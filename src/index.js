@@ -37,7 +37,7 @@ app.get('/', async (req, res) => {
     let html = fs.readFileSync(path.join(__dirname, 'home.html'), 'utf-8')
     if (accountManager) {
       res.setHeader('Content-Type', 'text/html')
-      html = html.replace('BASE_URL', `http://localhost:${process.env.SERVICE_PORT}${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
+      html = html.replace('BASE_URL', `http://${process.env.LISTEN_ADDRESS}:${process.env.SERVICE_PORT}${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
       html = html.replace('RequestNumber', accountManager.getRequestNumber())
       html = html.replace('SuccessAccountNumber', accountManager.getAccountTokensNumber())
       html = html.replace('ErrorAccountNumber', accountManager.getErrorAccountTokensNumber())
@@ -67,7 +67,19 @@ app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, asy
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
       })
-    res.json(response.data)
+
+    const models = {
+      "object": "list",
+      "data": response.data.data.map(item => ({
+        "id": item.id,
+        "object": "model",
+        "created": item.created,
+        "owned_by": "qwenlm"
+      })),
+      "object": "list"
+    }
+
+    res.json(models)
   } catch (error) {
     res.status(403)
       .json({
