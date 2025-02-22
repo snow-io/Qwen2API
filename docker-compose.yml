@@ -18,3 +18,6 @@ services:
       # 账号token：多个账号使用","分隔
       # 示例：ey1...,ey2...,ey3...
       - ACCOUNT_TOKENS=
+      # 监听地址(非必填)
+      - LISTEN_ADDRESS=0.0.0.0
+

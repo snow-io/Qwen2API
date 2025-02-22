@@ -55,16 +55,11 @@ app.get('/', async (req, res) => {
 app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, async (req, res) => {
   try {
     let authToken = req.headers.authorization
-    if (!authToken) {
-      return res.status(403)
-        .json({
-          error: "请提供正确的 Authorization token"
-        })
-    }
 
-    if (authToken === `Bearer ${process.env.API_KEY}`) {
+    if (!authToken && accountManager) {
       authToken = accountManager.getAccountToken()
     }
+
     const response = await axios.get('https://chat.qwenlm.ai/api/models',
       {
         headers: {
@@ -91,7 +86,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
       })
   }
 
-  if (authToken === `Bearer ${process.env.API_KEY}`) {
+  if (authToken === `Bearer ${process.env.API_KEY}` && accountManager) {
     authToken = accountManager.getAccountToken()
   } else {
     authToken = authToken.replace('Bearer ', '')
@@ -245,7 +240,6 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
     }
 
   } catch (error) {
-    // console.log(error)
     res.status(500)
       .json({
         error: "请求发送失败！！！"
@@ -254,7 +248,14 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
 
 })
 
-app.listen(process.env.SERVICE_PORT, () => {
-  console.log(`服务运行于 http://localhost:${process.env.SERVICE_PORT}${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
+app.listen(process.env.SERVICE_PORT || 3000, process.env.LISTEN_ADDRESS || '0.0.0.0', () => {
+  console.log(`服务运行于:
+-------------------------------------------------------------------
+监听地址：${process.env.LISTEN_ADDRESS ? process.env.LISTEN_ADDRESS : '0.0.0.0'}
+服务端口：${process.env.SERVICE_PORT}
+API前缀：${process.env.API_PREFIX ? process.env.API_PREFIX : '未设置'}
+账户数：${accountManager ? accountManager.getAccountTokensNumber() : '未启用'}
+-------------------------------------------------------------------
+    `)
 })
 
