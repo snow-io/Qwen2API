@@ -20,4 +20,8 @@ services:
       - ACCOUNT_TOKENS=
       # 监听地址(非必填)
       - LISTEN_ADDRESS=
+      # 搜索信息展示模式
+      # table: 使用折叠块和表格展示
+      # text: 使用纯文本
+      - SEARCH_INFO_MODE=table
 

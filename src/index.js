@@ -237,7 +237,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
 
         response.on('end', async () => {
             if (webSearchInfo) {
-                const webSearchTable = await accountManager.generateMarkdownTable(webSearchInfo)
+                const webSearchTable = await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")
                 res.write(`data: ${JSON.stringify({
                     "id": `chatcmpl-${id}`,
                     "object": "chat.completion.chunk",
@@ -246,7 +246,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
                         {
                             "index": 0,
                             "delta": {
-                                "content": `\n\n\n---\n\n### 搜索结果\n\n${webSearchTable}\n\n---`
+                                "content": `\n\n\n${webSearchTable}`
                             }
                         }
                     ]

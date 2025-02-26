@@ -27,6 +27,7 @@ Qwen2API/
     SERVICE_PORT=3000
     API_KEY=sk-123456
     ACCOUNT_TOKENS=
+    SEARCH_INFO_MODE=table
 ```
 
 - API_PREFIX: 服务路径
@@ -48,6 +49,10 @@ Qwen2API/
     > 账号token：多个账号使用","分隔
 
     > 示例：ey1...,ey2...,ey3...
+- SEARCH_INFO_MODE: 搜索信息展示模式
+    > 搜索信息展示模式，可选 table 或 text
+
+    > 示例：table
 
 ## 安装与运行
 
@@ -97,6 +102,7 @@ Qwen2API/
    SERVICE_PORT=3000
    API_KEY=sk-123456
    ACCOUNT_TOKENS=ey1...,ey2...,ey3...
+   SEARCH_INFO_MODE=table
    ```
 
 4. 启动服务：
