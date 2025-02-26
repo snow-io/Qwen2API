@@ -246,7 +246,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
                         {
                             "index": 0,
                             "delta": {
-                                "content": `\n\n\n---\n\n### 搜索结果\n\n---${webSearchTable}`
+                                "content": `\n\n\n---\n\n### 搜索结果\n\n${webSearchTable}\n\n---`
                             }
                         }
                     ]
