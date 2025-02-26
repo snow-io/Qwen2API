@@ -102,10 +102,7 @@ class Account {
     }
     
     let markdown = ""
-    if (mode === "table"){
-        // 表头
-        markdown = "<details>\n"
-        markdown += "   <summary>打开/折叠 搜索结果 </summary>\n\n"          
+    if (mode === "table"){        
         markdown += "| **序号** | **网站URL** | **来源** |\n"
         markdown += "|:---|:---|:---|\n"
     }
@@ -126,9 +123,7 @@ class Account {
         markdown += `[${index + 1}] ${urlCell} | 来源: ${hostnameCell}\n`
       }
     })
-    if (mode === "table"){
-        markdown += "\n\n</details>"
-    }
+
     return markdown
   }
 

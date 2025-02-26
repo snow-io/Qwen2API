@@ -13,6 +13,8 @@ Qwen2API/
 ├── package.json
 └── src/
     ├── index.js
+    ├── account.js
+    ├── home.html
     └── image.js
 
 ```
@@ -28,6 +30,7 @@ Qwen2API/
     API_KEY=sk-123456
     ACCOUNT_TOKENS=
     SEARCH_INFO_MODE=table
+    OUTPUT_THINK=true
 ```
 
 - API_PREFIX: 服务路径
@@ -53,6 +56,10 @@ Qwen2API/
     > 搜索信息展示模式，可选 table 或 text
 
     > 示例：table
+- OUTPUT_THINK: 是否输出思考过程
+    > 是否输出思考过程，可选 true 或 false
+
+    > 示例：true
 
 ## 安装与运行
 
@@ -103,6 +110,7 @@ Qwen2API/
    API_KEY=sk-123456
    ACCOUNT_TOKENS=ey1...,ey2...,ey3...
    SEARCH_INFO_MODE=table
+   OUTPUT_THINK=true
    ```
 
 4. 启动服务：

@@ -24,4 +24,5 @@ services:
       # table: 使用折叠块和表格展示
       # text: 使用纯文本
       - SEARCH_INFO_MODE=table
-
+      # 是否输出思考过程
+      - OUTPUT_THINK=true

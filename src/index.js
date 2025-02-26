@@ -102,10 +102,8 @@ app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, asy
 
     res.json(models)
   } catch (error) {
-    res.status(403)
-      .json({
-        error: "(0) 无效的Token"
-      })
+    res.json(await accountManager.getModelList())
+    return
   }
 })
 
@@ -178,88 +176,108 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
     }
   }
 
-  const streamResponse = async (response) => {
+  const streamResponse = async (response, thinkingEnabled) => {
     try {
-        const id = uuid.v4()
-        const decoder = new TextDecoder('utf-8')
-        let backContent = null
-        let webSearchInfo = null
-        let temp_content = ''
+      const id = uuid.v4()
+      const decoder = new TextDecoder('utf-8')
+      let backContent = null
+      let webSearchInfo = null
+      let temp_content = ''
+      let thinkEnd = false
 
-        response.on('data', async (chunk) => {
-            const decodeText = decoder.decode(chunk, { stream: true })
-            const lists = decodeText.split('\n').filter(item => item.trim() !== '')
-            for (const item of lists) {
-                try {
-                    let decodeJson = isJson(item.replace("data: ", '')) ? JSON.parse(item.replace("data: ", '')) : null
-                    if (decodeJson === null) {
-                        temp_content += item
-                        decodeJson = isJson(temp_content.replace("data: ", '')) ? JSON.parse(temp_content.replace("data: ", '')) : null
-                        if (decodeJson === null) {
-                            continue
-                        }
-                        temp_content = ''
-                    }
+      response.on('data', async (chunk) => {
+        const decodeText = decoder.decode(chunk, { stream: true })
+        const lists = decodeText.split('\n').filter(item => item.trim() !== '')
+        for (const item of lists) {
+          try {
+            let decodeJson = isJson(item.replace("data: ", '')) ? JSON.parse(item.replace("data: ", '')) : null
+            if (decodeJson === null) {
+              temp_content += item
+              decodeJson = isJson(temp_content.replace("data: ", '')) ? JSON.parse(temp_content.replace("data: ", '')) : null
+              if (decodeJson === null) {
+                continue
+              }
+              temp_content = ''
+            }
 
-                    // 处理 web_search 信息
-                    if (decodeJson.choices[0].delta.name === 'web_search') {
-                        webSearchInfo = decodeJson.choices[0].delta.extra.web_search_info
-                    }
+            // 处理 web_search 信息
+            if (decodeJson.choices[0].delta.name === 'web_search') {
+              webSearchInfo = decodeJson.choices[0].delta.extra.web_search_info
+            }
 
-                    // 处理内容
-                    let content = decodeJson.choices[0].delta.content
-                    if (backContent !== null) {
-                        content = content.replace(backContent, '')
-                    }
-                    backContent = decodeJson.choices[0].delta.content
+            // 处理内容
+            let content = decodeJson.choices[0].delta.content
 
-                    const StreamTemplate = {
-                        "id": `chatcmpl-${id}`,
-                        "object": "chat.completion.chunk",
-                        "created": new Date().getTime(),
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": {
-                                    "content": content
-                                },
-                                "finish_reason": null
-                            }
-                        ]
-                    }
-                    res.write(`data: ${JSON.stringify(StreamTemplate)}\n\n`)
-                } catch (error) {
-                    console.log(error)
-                    res.status(500).json({ error: "服务错误!!!" })
+            if (backContent !== null) {
+              content = content.replace(backContent, '')
+            }
+
+            backContent = decodeJson.choices[0].delta.content
+
+            if (thinkingEnabled && process.env.OUTPUT_THINK === "false" && !thinkEnd && !backContent.includes("</think>")) {
+              continue
+            } else if (thinkingEnabled && process.env.OUTPUT_THINK === "false" && !thinkEnd && backContent.includes("</think>")) {
+              content = content.replace("</think>", "")
+              thinkEnd = true
+            }
+
+            if (webSearchInfo && process.env.OUTPUT_THINK === "true") {
+              if (thinkingEnabled && content.includes("<think>")) {
+                content = content.replace("<think>", `<think>\n\n\n${await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")}\n\n\n`)
+                webSearchInfo = null
+              } else if (!thinkingEnabled) {
+                content = `<think>\n${await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")}\n</think>\n${content}`
+                webSearchInfo = null
+              }
+            }
+
+            const StreamTemplate = {
+              "id": `chatcmpl-${id}`,
+              "object": "chat.completion.chunk",
+              "created": new Date().getTime(),
+              "choices": [
+                {
+                  "index": 0,
+                  "delta": {
+                    "content": content
+                  },
+                  "finish_reason": null
                 }
+              ]
             }
-        })
+            res.write(`data: ${JSON.stringify(StreamTemplate)}\n\n`)
+          } catch (error) {
+            console.log(error)
+            res.status(500).json({ error: "服务错误!!!" })
+          }
+        }
+      })
 
-        response.on('end', async () => {
-            if (webSearchInfo) {
-                const webSearchTable = await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")
-                res.write(`data: ${JSON.stringify({
-                    "id": `chatcmpl-${id}`,
-                    "object": "chat.completion.chunk",
-                    "created": new Date().getTime(),
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {
-                                "content": `\n\n\n${webSearchTable}`
-                            }
-                        }
-                    ]
-                })}\n\n`)
-            }
-            res.write(`data: [DONE]\n\n`)
-            res.end()
-        })
+      response.on('end', async () => {
+        if (process.env.OUTPUT_THINK === "false" && webSearchInfo) {
+          const webSearchTable = await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")
+          res.write(`data: ${JSON.stringify({
+            "id": `chatcmpl-${id}`,
+            "object": "chat.completion.chunk",
+            "created": new Date().getTime(),
+            "choices": [
+              {
+                "index": 0,
+                "delta": {
+                  "content": `\n\n\n${webSearchTable}`
+                }
+              }
+            ]
+          })}\n\n`)
+        }
+        res.write(`data: [DONE]\n\n`)
+        res.end()
+      })
     } catch (error) {
-        console.log(error)
-        res.status(500).json({ error: "服务错误!!!" })
+      console.log(error)
+      res.status(500).json({ error: "服务错误!!!" })
     }
-}
+  }
 
   try {
 
@@ -301,7 +319,7 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       })
-      streamResponse(response.data)
+      streamResponse(response.data, thinkingEnabled)
     } else {
       res.set({
         'Content-Type': 'application/json',
