@@ -1,115 +1,18 @@
 const express = require('express')
-const bodyParser = require('body-parser')
-const axios = require('axios')
-const app = express()
+const router = express.Router()
 const uuid = require('uuid')
-const { uploadImage } = require('./image')
-const Account = require('./account.js')
-const fs = require('fs')
-const path = require('path')
-const dotenv = require('dotenv')
-dotenv.config()
-if ((!process.env.ACCOUNT_TOKENS && process.env.API_KEY) || (process.env.ACCOUNT_TOKENS && !process.env.API_KEY)) {
-  console.log('如果需要使用多账户，请设置ACCOUNT_TOKENS和API_KEY')
-  process.exit(1)
-}
+const { uploadImage } = require('../lib/image.js')
+const { isJson } = require('../lib/tools.js')
+const { sendChatRequest } = require('../lib/request.js')
+const accountManager = require('../lib/account.js')
+const { createImageRequest, awaitImage } = require('../lib/image.js')
 
-const accountTokens = process.env.ACCOUNT_TOKENS
-let accountManager = null
+router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/completions`, async (req, res) => {
 
-if (accountTokens) {
-  accountManager = new Account(accountTokens)
-}
-
-app.use(bodyParser.json({ limit: '128mb' }))
-app.use(bodyParser.urlencoded({ limit: '128mb', extended: true }))
-
-const isJson = (str) => {
-  try {
-    JSON.parse(str)
-    return true
-  } catch (error) {
-    return false
-  }
-}
-
-app.use((err, req, res, next) => {
-  console.error(err)
-})
-
-app.get('/', async (req, res) => {
-  try {
-    let html = fs.readFileSync(path.join(__dirname, 'home.html'), 'utf-8')
-    if (accountManager) {
-      res.setHeader('Content-Type', 'text/html')
-      html = html.replace('BASE_URL', `http://${process.env.LISTEN_ADDRESS ? process.env.LISTEN_ADDRESS : "localhost"}:${process.env.SERVICE_PORT}${process.env.API_PREFIX ? process.env.API_PREFIX : ''}`)
-      html = html.replace('RequestNumber', accountManager.getRequestNumber())
-      html = html.replace('SuccessAccountNumber', accountManager.getAccountTokensNumber())
-      html = html.replace('ErrorAccountNumber', accountManager.getErrorAccountTokensNumber())
-      html = html.replace('ErrorAccountTokens', accountManager.getErrorAccountTokens().join('\n'))
-    }
-    res.send(html)
-  } catch (e) {
-    res.status(500)
-      .json({
-        error: "服务错误!!!"
-      })
-  }
-})
-
-app.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, async (req, res) => {
-  try {
-    let authToken = req.headers.authorization
-
-    if (authToken) {
-      // 如果提供了 Authorization header，验证是否与 API_KEY 匹配
-      if (authToken === `Bearer ${process.env.API_KEY}`) {
-        authToken = accountManager.getAccountToken()
-      }
-    } else if (accountManager) {
-      // 如果没有 Authorization header 且有账户管理，使用账户 token
-      authToken = accountManager.getAccountToken()
-    } else {
-      res.json(await accountManager.getModelList())
-      return
-    }
-
-    const response = await axios.get('https://chat.qwenlm.ai/api/models',
-      {
-        headers: {
-          "Authorization": `Bearer ${authToken}`,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-      })
-    const modelsList_response = response.data.data
-    const modelsList = []
-    for (const item of modelsList_response) {
-      modelsList.push(item.id)
-      modelsList.push(item.id + '-thinking')
-      modelsList.push(item.id + '-search')
-      modelsList.push(item.id + '-thinking-search')
-    }
-    const models = {
-      "object": "list",
-      "data": modelsList.map(item => ({
-        "id": item,
-        "object": "model",
-        "created": new Date().getTime(),
-        "owned_by": "qwenlm"
-      })),
-      "object": "list"
-    }
-
-    res.json(models)
-  } catch (error) {
-    res.json(await accountManager.getModelList())
-    return
-  }
-})
-
-app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/completions`, async (req, res) => {
-
+  // 身份验证
   let authToken = req.headers.authorization
+  const messages = req.body.messages
+
   if (!authToken) {
     return res.status(403)
       .json({
@@ -123,9 +26,15 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
     authToken = authToken.replace('Bearer ', '')
   }
 
+  // 判断是否开启流式输出
+  if (req.body.stream === null || req.body.stream === undefined) {
+    req.body.stream = false
+  }
+  const stream = req.body.stream
+
   console.log(`[${new Date().toLocaleString()}]: model: ${req.body.model} | stream: ${req.body.stream} | authToken: ${authToken.replace('Bearer ', '').slice(0, Math.floor(authToken.length / 2))}...`)
 
-  const messages = req.body.messages
+
   let imageId = null
   const isImageMessage = Array.isArray(messages[messages.length - 1].content) === true && messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url).length > 0
   if (isImageMessage) {
@@ -137,11 +46,6 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
       }
     }
   }
-
-  if (req.body.stream === null || req.body.stream === undefined) {
-    req.body.stream = false
-  }
-  const stream = req.body.stream
 
   const notStreamResponse = async (response) => {
     try {
@@ -280,38 +184,31 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
   }
 
   try {
-
-    // 判断是否开启推理
-    let thinkingEnabled = false
-    if (req.body.model.includes('-thinking')) {
-      thinkingEnabled = true
-      messages[messages.length - 1].feature_config = {
-        "thinking_enabled": thinkingEnabled
-      }
-      req.body.model = req.body.model.replace('-thinking', '')
-    }
-    let searchEnabled = false
-    if (req.body.model.includes('-search')) {
-      searchEnabled = true
-      messages[messages.length - 1].chat_type = 'search'
-      req.body.model = req.body.model.replace('-search', '')
+    let response_data = null
+    if (req.body.model.includes('-draw')) {
+      response_data = await createImageRequest(req.body.messages[req.body.messages.length - 1].content, req.body.model, '1024*1024', authToken)
+    } else {
+      response_data = await sendChatRequest(req.body.model, messages, stream, authToken)
     }
 
-    const response = await axios.post('https://chat.qwenlm.ai/api/chat/completions',
-      {
-        "model": req.body.model,
-        "messages": messages,
-        "stream": stream,
-        "chat_type": searchEnabled ? 'search' : "t2t"
-      },
-      {
-        headers: {
-          "Authorization": `Bearer ${authToken}`,
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        },
-        responseType: stream ? 'stream' : 'json'
+    if (response_data.status === !200) {
+      res.status(500)
+        .json({
+          error: "请求发送失败！！！"
+        })
+      return
+    }
+
+    if (req.body.model.includes('-draw')) {
+      response_data = await awaitImage(response_data.task_id, authToken)
+      if (response_data.status !== 200) {
+        res.status(500)
+          .json({
+            error: "请求发送失败！！！"
+          })
+        return
       }
-    )
+    }
 
     if (stream) {
       res.set({
@@ -319,12 +216,59 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       })
-      streamResponse(response.data, thinkingEnabled)
+      if (req.body.model.includes('-draw')) {
+        const StreamTemplate = {
+          "id": `chatcmpl-${uuid.v4()}`,
+          "object": "chat.completion.chunk",
+          "created": new Date().getTime(),
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": `![${response_data.url}](${response_data.url})`
+              },
+              "finish_reason": null
+            }
+          ]
+        }
+        res.write(`data: ${JSON.stringify(StreamTemplate)}\n\n`)
+        res.write(`data: [DONE]\n\n`)
+        res.end()
+      } else {
+        streamResponse(response_data.response, req.body.model.includes('-thinking') ? true : false)
+      }
+
     } else {
+
       res.set({
         'Content-Type': 'application/json',
       })
-      notStreamResponse(response.data)
+      if (req.body.model.includes('-draw')) {
+        const bodyTemplate = {
+          "id": `chatcmpl-${uuid.v4()}`,
+          "object": "chat.completion",
+          "created": new Date().getTime(),
+          "model": req.body.model,
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": `![${response_data.url}](${response_data.url})`
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 1024,
+            "completion_tokens": 1024,
+            "total_tokens": 2048
+          }
+        }
+        res.json(bodyTemplate)
+      } else {
+        notStreamResponse(response_data.response)
+      }
     }
 
   } catch (error) {
@@ -337,21 +281,4 @@ app.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/comple
 
 })
 
-const startInfo = `
--------------------------------------------------------------------
-监听地址：${process.env.LISTEN_ADDRESS ? process.env.LISTEN_ADDRESS : 'localhost'}
-服务端口：${process.env.SERVICE_PORT}
-API前缀：${process.env.API_PREFIX ? process.env.API_PREFIX : '未设置'}
-账户数：${accountManager ? accountManager.getAccountTokensNumber() : '未启用'}
--------------------------------------------------------------------
-`
-if (process.env.LISTEN_ADDRESS) {
-  app.listen(process.env.SERVICE_PORT || 3000, process.env.LISTEN_ADDRESS, () => {
-    console.log(startInfo)
-  })
-} else {
-  app.listen(process.env.SERVICE_PORT || 3000, () => {
-    console.log(startInfo)
-  })
-}
-
+module.exports = router

@@ -82,6 +82,7 @@ class Account {
       modelsList.push(item + '-thinking')
       modelsList.push(item + '-search')
       modelsList.push(item + '-thinking-search')
+      modelsList.push(item + '-draw')
     }
     const models = {
       "object": "list",
@@ -95,6 +96,7 @@ class Account {
     }
     return models
   }
+
   async generateMarkdownTable(websites, mode) {
     // 输入校验
     if (!Array.isArray(websites) || websites.length === 0) {
@@ -115,8 +117,8 @@ class Account {
     websites.forEach((site, index) => {
       const { title, url, hostname } = site
       // 处理字段值，若为空则使用默认值
-      const urlCell = `[${this.escapeMarkdown(title || DEFAULT_TITLE)}](${url || DEFAULT_URL})`
-      const hostnameCell = this.escapeMarkdown(hostname || DEFAULT_HOSTNAME)
+      const urlCell = `[${title || DEFAULT_TITLE}](${url || DEFAULT_URL})`
+      const hostnameCell = hostname || DEFAULT_HOSTNAME
       if (mode === "table"){
         markdown += `| ${index + 1} | ${urlCell} | ${hostnameCell} |\n`
       } else {
@@ -127,14 +129,17 @@ class Account {
     return markdown
   }
 
-  escapeMarkdown(text) {
-    return text
-      .replace(/\|/g, "\\|")
-      .replace(/\*/g, "\\*")
-      .replace(/#/g, "\\#")
-      .replace(/\[/g, "\\[")
-      .replace(/\]/g, "\\]")
-  }
+}
+if ((!process.env.ACCOUNT_TOKENS && process.env.API_KEY) || (process.env.ACCOUNT_TOKENS && !process.env.API_KEY)) {
+  console.log('如果需要使用多账户，请设置ACCOUNT_TOKENS和API_KEY')
+  process.exit(1)
 }
 
-module.exports = Account
+const accountTokens = process.env.ACCOUNT_TOKENS
+let accountManager = null
+
+if (accountTokens) {
+  accountManager = new Account(accountTokens)
+}
+
+module.exports = accountManager

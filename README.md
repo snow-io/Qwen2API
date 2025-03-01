@@ -2,22 +2,7 @@
 
 Qwen2API 是一个基于 Node.js 的 API 服务，提供聊天模型的接口以及图像上传功能。
 
-## 目录结构
-
-```
-
-Qwen2API/
-├── Dockerfile
-├── docker-compose.yml
-├── .env
-├── package.json
-└── src/
-    ├── index.js
-    ├── account.js
-    ├── home.html
-    └── image.js
-
-```
+---
 
 ## 配置文件
 
@@ -33,17 +18,19 @@ Qwen2API/
     OUTPUT_THINK=true
 ```
 
-- API_PREFIX: 服务路径
-    > API 路径，不填则为空(http://localhost:3000)
+---
 
-    > 示例(/api) 则访问 http://localhost:3000/api
+- API_PREFIX: 服务路径
+    > API 路径，不填则为空(<http://localhost:3000>)
+
+    > 示例(/api) 则访问 <http://localhost:3000/api>
 - LISTEN_ADDRESS: 监听地址
     > 监听地址，不填则为0.0.0.0
 
 - SERVICE_PORT: 服务运行端口
     > 如果需要修改Docker暴露端口，请修改ports中的参数
 
-    >示例(8080:3000) 则访问 http://localhost:8080
+    >示例(8080:3000) 则访问 <http://localhost:8080>
 - API_KEY: 密钥
     > API 密钥 (非必填)
 
@@ -60,6 +47,8 @@ Qwen2API/
     > 是否输出思考过程，可选 true 或 false
 
     > 示例：true
+  >
+---
 
 ## 安装与运行
 
@@ -70,6 +59,8 @@ Qwen2API/
 - [Node.js](https://nodejs.org/) (LTS 版本)
 - [Git](https://git-scm.com/)
 - [Docker](https://www.docker.com/)（可选）
+
+---
 
 ### 使用 Docker 运行
 
@@ -85,6 +76,8 @@ Qwen2API/
    curl -o docker-compose.yml https://raw.githubusercontent.com/Rfym21/Qwen2API/refs/heads/main/docker-compose.yml
    docker compose pull && docker compose up -d
    ```
+
+---
 
 ### 本地运行
 
@@ -123,6 +116,8 @@ Qwen2API/
 
 - [Qwen2API](https://huggingface.co/spaces/devme/q2waepnilm)
 
+---
+
 ## API 端点
 
 ### 获取授权令牌
@@ -131,12 +126,16 @@ Qwen2API/
 
 ![aa0350d1a79c4bdf2ac55b9a374b4b777cb2b512_2_1380x760.png](https://s2.loli.net/2025/02/21/syXqpR3V5OAcDol.png)
 
+---
+
 ### 获取模型列表
 
 - **请求方式**: `GET`
 - **URL**: `/v1/models`
 - **Headers**:
   - `Authorization`: 必须提供有效的授权令牌。
+
+---
 
 ### 聊天完成
 
@@ -158,6 +157,27 @@ Qwen2API/
     "stream": false
   }
   ```
+
+---
+
+### 生成图像
+
+- **请求方式**: `POST`
+- **URL**: `/v1/images/generations`
+- **Headers**:
+  - `Authorization`: 必须提供有效的授权令牌。
+- **请求体**:
+
+  ```json
+  {
+    "model": "模型名称",
+    "prompt": "用户消息",
+    "n": 1,
+    "size": "1024*1024"
+  }
+  ```
+
+---
 
 ## 获取授权令牌
 
@@ -182,6 +202,12 @@ Qwen2API/
 - 在模型名后添加"-thinking-search"启用推理和搜索
 
   > 示例：qwen-max-latest-thinking-search
+
+- 在模型名后添加"-draw"启用图像生成
+
+  > 示例：qwen-max-latest-draw
+
+---
 
 ## 依赖
 

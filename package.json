@@ -1,10 +1,10 @@
 {
   "name": "qwen2api",
-  "version": "1.0.0",
+  "version": "2025.03.01.22.30",
   "main": "index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
   },
   "keywords": [],
   "author": "",
