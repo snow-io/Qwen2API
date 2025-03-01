@@ -1,5 +1,6 @@
 const express = require('express')
 const router = express.Router()
+const accountManager = require('../lib/account.js')
 
 router.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, async (req, res) => {
   try {
