@@ -28,7 +28,7 @@ const sendChatRequest = async (model, messages, stream, authToken) => {
   try {
 
     console.log(JSON.stringify(body))
-    const response = await axios.post('https://chat.qwenlm.ai/api/chat/completions',
+    const response = await axios.post('https://chat.qwen.ai/api/chat/completions',
       body,
       {
         headers: {

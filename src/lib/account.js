@@ -36,7 +36,7 @@ class Account {
 
   async checkAccountToken(token) {
     try {
-      await axios.get('https://chat.qwenlm.ai/api/models',
+      await axios.get('https://chat.qwen.ai/api/models',
         {
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -90,7 +90,7 @@ class Account {
         "id": item,
         "object": "model",
         "created": new Date().getTime(),
-        "owned_by": "qwenlm"
+        "owned_by": "qwen"
       })),
       "object": "list"
     }

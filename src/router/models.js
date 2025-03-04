@@ -19,7 +19,7 @@ router.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, 
       return
     }
 
-    const response = await axios.get('https://chat.qwenlm.ai/api/models',
+    const response = await axios.get('https://chat.qwen.ai/api/models',
       {
         headers: {
           "Authorization": `Bearer ${authToken}`,
@@ -41,7 +41,7 @@ router.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, 
         "id": item,
         "object": "model",
         "created": new Date().getTime(),
-        "owned_by": "qwenlm"
+        "owned_by": "qwen"
       })),
       "object": "list"
     }
