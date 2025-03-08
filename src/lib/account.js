@@ -16,7 +16,8 @@ class Account {
       "qwq-32b-preview",
       "qwen2.5-coder-32b-instruct",
       "qwen-turbo-latest",
-      "qwen2.5-72b-instruct"
+      "qwen2.5-72b-instruct",
+      "qwq-32b"
     ]
   }
 

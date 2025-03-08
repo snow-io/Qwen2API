@@ -49,6 +49,7 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
 
   const notStreamResponse = async (response) => {
     try {
+      // console.log(response)
       const bodyTemplate = {
         "id": `chatcmpl-${uuid.v4()}`,
         "object": "chat.completion",
@@ -91,6 +92,7 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
 
       response.on('data', async (chunk) => {
         const decodeText = decoder.decode(chunk, { stream: true })
+        // console.log(decodeText)
         const lists = decodeText.split('\n').filter(item => item.trim() !== '')
         for (const item of lists) {
           try {
@@ -134,6 +136,7 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
                 webSearchInfo = null
               }
             }
+            // console.log(content)
 
             const StreamTemplate = {
               "id": `chatcmpl-${id}`,
@@ -235,7 +238,7 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
         res.write(`data: [DONE]\n\n`)
         res.end()
       } else {
-        streamResponse(response_data.response, req.body.model.includes('-thinking') ? true : false)
+        streamResponse(response_data.response, (req.body.model.includes('-thinking') || req.body.model.includes('qwq-32b')) ? true : false)
       }
 
     } else {
