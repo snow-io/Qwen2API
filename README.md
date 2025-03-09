@@ -57,7 +57,6 @@ Qwen2API 是一个基于 Node.js 的 API 服务，提供聊天模型的接口以
 确保您已安装以下软件：
 
 - [Node.js](https://nodejs.org/) (LTS 版本)
-- [Git](https://git-scm.com/)
 - [Docker](https://www.docker.com/)（可选）
 
 ---
