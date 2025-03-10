@@ -216,3 +216,28 @@ Qwen2API 是一个基于 Node.js 的 API 服务，提供聊天模型的接口以
 - `express`: Web 框架。
 - `form-data`: 处理表单数据。
 - `uuid`: 生成唯一标识符。
+
+
+## 常见问题
+
+### 500报错
+
+1. 使用 apikey 作为身份验证
+> 大概率apikey不匹配，程序将传入的apikey当做account_token向qwen.ai发送请求，导致失败
+
+2. 使用apikey且正确，只有少量号，且并发高
+> 单号有并发限制，加大剂量
+
+3. 使用apikey且正确，号池足够
+> 可能是坏了，回复贴上，等待修复
+
+4. 使用qwen.ai作为身份验证
+> token已失效，token应以我ey开头的jwt
+
+### 404报错
+
+1. 填写了API_PREFIX
+> 填写了API_PREFIX环境变量却没有使用，请求地址应该为http|https://ip地址:端口号/API_PREFIX (/v1)
+
+2. 使用hf搭建
+> 首先检查空间是否是公开的，然后检查第一项
