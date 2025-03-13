@@ -1,7 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const uuid = require('uuid')
-const { uploadImage } = require('../lib/image.js')
+const { upload } = require('../lib/upload.js')
 const { isJson } = require('../lib/tools.js')
 const { sendChatRequest } = require('../lib/request.js')
 const accountManager = require('../lib/account.js')
@@ -35,17 +35,26 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
   console.log(`[${new Date().toLocaleString()}]: model: ${req.body.model} | stream: ${req.body.stream} | authToken: ${authToken.replace('Bearer ', '').slice(0, Math.floor(authToken.length / 2))}...`)
 
 
-  let imageId = null
-  const isImageMessage = Array.isArray(messages[messages.length - 1].content) === true && messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url).length > 0
-  if (isImageMessage) {
-    imageId = await uploadImage(messages[messages.length - 1].content.filter(item => item.image_url && item.image_url.url)[0].image_url.url, authToken)
-    if (imageId) {
+  let file_url = null
+  const isFileMessage = Array.isArray(messages[messages.length - 1].content) === true
+
+  if (isFileMessage) {
+
+    const file = messages[messages.length - 1].content.filter(item => item.type !== 'text')[0]
+
+    if (file && file.type === 'image_url') {
+      file_url = await upload(file.image_url.url, authToken)
+    } 
+
+    if (file_url) {
       messages[messages.length - 1].content[messages[messages.length - 1].content.length - 1] = {
         "type": "image",
-        "image": imageId
+        "image": file_url
       }
     }
   }
+
+  console.log(file_url)
 
   const notStreamResponse = async (response) => {
     try {
