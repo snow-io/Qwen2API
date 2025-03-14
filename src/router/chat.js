@@ -98,74 +98,102 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
       let webSearchInfo = null
       let temp_content = ''
       let thinkEnd = false
+      let hasError = false
 
       response.on('data', async (chunk) => {
-        const decodeText = decoder.decode(chunk, { stream: true })
-        // console.log(decodeText)
-        const lists = decodeText.split('\n').filter(item => item.trim() !== '')
-        for (const item of lists) {
-          try {
-            let decodeJson = isJson(item.replace("data: ", '')) ? JSON.parse(item.replace("data: ", '')) : null
-            if (decodeJson === null) {
-              temp_content += item
-              decodeJson = isJson(temp_content.replace("data: ", '')) ? JSON.parse(temp_content.replace("data: ", '')) : null
-              if (decodeJson === null) {
+        if (hasError) return
+        try {
+          const decodeText = decoder.decode(chunk, { stream: true })
+          // console.log(decodeText)
+          const lists = decodeText.split('\n').filter(item => item.trim() !== '')
+          for (const item of lists) {
+            try {
+              let decodeJson = isJson(item.replace("data: ", '')) ? JSON.parse(item.replace("data: ", '')) : null
+              // 验证解析的JSON数据结构
+              if (!decodeJson?.choices?.[0]?.delta) {
                 continue
               }
-              temp_content = ''
-            }
-
-            // 处理 web_search 信息
-            if (decodeJson.choices[0].delta.name === 'web_search') {
-              webSearchInfo = decodeJson.choices[0].delta.extra.web_search_info
-            }
-
-            // 处理内容
-            let content = decodeJson.choices[0].delta.content
-
-            if (backContent !== null) {
-              content = content.replace(backContent, '')
-            }
-
-            backContent = decodeJson.choices[0].delta.content
-
-            if (thinkingEnabled && process.env.OUTPUT_THINK === "false" && !thinkEnd && !backContent.includes("</think>")) {
-              continue
-            } else if (thinkingEnabled && process.env.OUTPUT_THINK === "false" && !thinkEnd && backContent.includes("</think>")) {
-              content = content.replace("</think>", "")
-              thinkEnd = true
-            }
-
-            if (webSearchInfo && process.env.OUTPUT_THINK === "true") {
-              if (thinkingEnabled && content.includes("<think>")) {
-                content = content.replace("<think>", `<think>\n\n\n${await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")}\n\n\n`)
-                webSearchInfo = null
-              } else if (!thinkingEnabled) {
-                content = `<think>\n${await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")}\n</think>\n${content}`
-                webSearchInfo = null
-              }
-            }
-            // console.log(content)
-
-            const StreamTemplate = {
-              "id": `chatcmpl-${id}`,
-              "object": "chat.completion.chunk",
-              "created": new Date().getTime(),
-              "choices": [
-                {
-                  "index": 0,
-                  "delta": {
-                    "content": content
-                  },
-                  "finish_reason": null
+              if (decodeJson === null) {
+                temp_content += item
+                decodeJson = isJson(temp_content.replace("data: ", '')) ? JSON.parse(temp_content.replace("data: ", '')) : null
+                if (decodeJson === null) {
+                  continue
                 }
-              ]
+                temp_content = ''
+              }
+
+              // 处理 web_search 信息
+              if (decodeJson.choices[0].delta.name === 'web_search') {
+                webSearchInfo = decodeJson.choices[0].delta.extra.web_search_info
+              }
+
+              // 处理内容
+              let content = decodeJson.choices[0].delta.content
+
+              if (backContent !== null) {
+                content = content.replace(backContent, '')
+              }
+
+              backContent = decodeJson.choices[0].delta.content
+
+              if (thinkingEnabled && process.env.OUTPUT_THINK === "false" && !thinkEnd && !backContent.includes("</think>")) {
+                continue
+              } else if (thinkingEnabled && process.env.OUTPUT_THINK === "false" && !thinkEnd && backContent.includes("</think>")) {
+                content = content.replace("</think>", "")
+                thinkEnd = true
+              }
+
+              if (webSearchInfo && process.env.OUTPUT_THINK === "true") {
+                if (thinkingEnabled && content.includes("<think>")) {
+                  content = content.replace("<think>", `<think>\n\n\n${await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")}\n\n\n`)
+                  webSearchInfo = null
+                } else if (!thinkingEnabled) {
+                  content = `<think>\n${await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")}\n</think>\n${content}`
+                  webSearchInfo = null
+                }
+              }
+              // console.log(content)
+
+              const StreamTemplate = {
+                "id": `chatcmpl-${id}`,
+                "object": "chat.completion.chunk",
+                "created": new Date().getTime(),
+                "choices": [
+                  {
+                    "index": 0,
+                    "delta": {
+                      "content": content
+                    },
+                    "finish_reason": null
+                  }
+                ]
+              }
+              res.write(`data: ${JSON.stringify(StreamTemplate)}\n\n`)
+            } catch (error) {
+              // console.log(error)
+              // res.status(500).json({ error: "服务错误!!!" })
+              console.log('Parse chunk error:', error)
+              continue
             }
-            res.write(`data: ${JSON.stringify(StreamTemplate)}\n\n`)
-          } catch (error) {
-            console.log(error)
-            res.status(500).json({ error: "服务错误!!!" })
           }
+        }catch (error) {
+          hasError = true
+          console.log('Stream error:', error)
+          res.status(500).end()
+        }
+      })
+      response.on('end', () => {
+        if (!hasError) {
+          res.write('data: [DONE]\n\n')
+        }
+        res.end()
+      })
+
+      response.on('error', (error) => {
+        console.log('Response error:', error)
+        if (!hasError) {
+          hasError = true
+          res.status(500).end()
         }
       })
 
@@ -190,8 +218,10 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
         res.end()
       })
     } catch (error) {
-      console.log(error)
-      res.status(500).json({ error: "服务错误!!!" })
+      // console.log(error)
+      // res.status(500).json({ error: "服务错误!!!" })
+      console.log('Stream response error:', error)
+      res.status(500).end()
     }
   }
 
@@ -228,6 +258,11 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
       })
+      if (!response_data?.response) {
+        return res.status(500).json({
+          error: "无效的响应数据"
+        })
+      }
       if (req.body.model.includes('-draw')) {
         const StreamTemplate = {
           "id": `chatcmpl-${uuid.v4()}`,
