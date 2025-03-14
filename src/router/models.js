@@ -27,14 +27,17 @@ router.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, 
         }
       })
     const modelsList_response = response.data.data
+    const defaultModels = []
     const modelsList = []
     for (const item of modelsList_response) {
+      defaultModels.push(item.id)
       modelsList.push(item.id)
       modelsList.push(item.id + '-thinking')
       modelsList.push(item.id + '-search')
       modelsList.push(item.id + '-thinking-search')
       modelsList.push(item.id + '-draw')
     }
+
     const models = {
       "object": "list",
       "data": modelsList.map(item => ({
@@ -44,6 +47,10 @@ router.get(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/models`, 
         "owned_by": "qwen"
       })),
       "object": "list"
+    }
+
+    if (defaultModels.length > 0) {
+      accountManager.setDefaultModels(defaultModels)
     }
 
     res.json(models)
