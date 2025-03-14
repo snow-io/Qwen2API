@@ -99,6 +99,16 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
       let temp_content = ''
       let thinkEnd = false
       let hasError = false
+      let isEnded = false
+      const endResponse = () => {
+        if (!isEnded) {
+          isEnded = true
+          if (!hasError) {
+            res.write('data: [DONE]\n\n')
+          }
+          res.end()
+        }
+      }
 
       response.on('data', async (chunk) => {
         if (hasError) return
@@ -107,6 +117,7 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
           // console.log(decodeText)
           const lists = decodeText.split('\n').filter(item => item.trim() !== '')
           for (const item of lists) {
+            if (hasError || isEnded) break
             try {
               let decodeJson = isJson(item.replace("data: ", '')) ? JSON.parse(item.replace("data: ", '')) : null
               // 验证解析的JSON数据结构
@@ -179,43 +190,59 @@ router.post(`${process.env.API_PREFIX ? process.env.API_PREFIX : ''}/v1/chat/com
         }catch (error) {
           hasError = true
           console.log('Stream error:', error)
-          res.status(500).end()
+          // res.status(500).end()
+          endResponse()
         }
       })
-      response.on('end', () => {
-        if (!hasError) {
-          res.write('data: [DONE]\n\n')
-        }
-        res.end()
-      })
-
-      response.on('error', (error) => {
-        console.log('Response error:', error)
-        if (!hasError) {
-          hasError = true
-          res.status(500).end()
-        }
-      })
+      // response.on('end', () => {
+      //   if (!hasError) {
+      //     res.write('data: [DONE]\n\n')
+      //   }
+      //   res.end()
+      // })
+      //
+      // response.on('error', (error) => {
+      //   console.log('Response error:', error)
+      //   if (!hasError) {
+      //     hasError = true
+      //     res.status(500).end()
+      //   }
+      // })
 
       response.on('end', async () => {
-        if (process.env.OUTPUT_THINK === "false" && webSearchInfo) {
-          const webSearchTable = await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")
-          res.write(`data: ${JSON.stringify({
-            "id": `chatcmpl-${id}`,
-            "object": "chat.completion.chunk",
-            "created": new Date().getTime(),
-            "choices": [
-              {
-                "index": 0,
-                "delta": {
-                  "content": `\n\n\n${webSearchTable}`
+        if (hasError || isEnded) return
+        try {
+          if (process.env.OUTPUT_THINK === "false" && webSearchInfo) {
+            const webSearchTable = await accountManager.generateMarkdownTable(webSearchInfo, process.env.SEARCH_INFO_MODE || "table")
+            res.write(`data: ${JSON.stringify({
+              "id": `chatcmpl-${id}`,
+              "object": "chat.completion.chunk",
+              "created": new Date().getTime(),
+              "choices": [
+                {
+                  "index": 0,
+                  "delta": {
+                    "content": `\n\n\n${webSearchTable}`
+                  }
                 }
-              }
-            ]
-          })}\n\n`)
+              ]
+            })}\n\n`)
+          }
+          // res.write(`data: [DONE]\n\n`)
+          // res.end()
+          endResponse()
+        } catch (error) {
+          hasError = true
+          console.log('End event error:', error)
+          endResponse()
         }
-        res.write(`data: [DONE]\n\n`)
-        res.end()
+      })
+      response.on('error', (error) => {
+        console.log('Response error:', error)
+        if (!isEnded) {
+          hasError = true
+          endResponse()
+        }
       })
     } catch (error) {
       // console.log(error)
